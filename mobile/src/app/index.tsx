@@ -2,8 +2,15 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import * as Location from 'expo-location';
 
+import {
+  NaverMapView,
+  NaverMapMarkerOverlay,
+} from '@mj-studio/react-native-naver-map';
+
 export default function HomeScreen() {
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
+  const [location, setLocation] =
+    useState<Location.LocationObject | null>(null);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -29,7 +36,7 @@ export default function HomeScreen() {
 
   if (error) {
     return (
-      <View style={styles.container}>
+      <View style={styles.center}>
         <Text>{error}</Text>
       </View>
     );
@@ -37,27 +44,33 @@ export default function HomeScreen() {
 
   if (!location) {
     return (
-      <View style={styles.container}>
+      <View style={styles.center}>
         <Text>현재 위치 확인 중...</Text>
       </View>
     );
   }
 
+  const { latitude, longitude } = location.coords;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Nurigo</Text>
-
-      <Text>
-        Latitude: {location.coords.latitude}
-      </Text>
-
-      <Text>
-        Longitude: {location.coords.longitude}
-      </Text>
-
-      <Text>
-        Accuracy: {location.coords.accuracy} m
-      </Text>
+      <NaverMapView
+        style={styles.map}
+        camera={{
+          latitude,
+          longitude,
+          zoom: 16,
+        }}
+        isShowLocationButton={true}
+      >
+        <NaverMapMarkerOverlay
+          latitude={latitude}
+          longitude={longitude}
+          caption={{
+            text: '현재 위치',
+          }}
+        />
+      </NaverMapView>
     </View>
   );
 }
@@ -65,14 +78,15 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
   },
 
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 20,
+  map: {
+    flex: 1,
+  },
+
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
