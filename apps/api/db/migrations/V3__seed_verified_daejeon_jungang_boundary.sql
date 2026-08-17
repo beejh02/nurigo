@@ -1,0 +1,86 @@
+DO $migration$
+DECLARE
+  candidate geometry;
+  existing_boundary market_boundaries%ROWTYPE;
+BEGIN
+  candidate := ST_Multi(
+    ST_ForcePolygonCCW(
+      ST_SetSRID(
+        ST_GeomFromGeoJSON('{"type":"Polygon","coordinates":[[[127.43012507026305,36.329663635174725],[127.43219232357711,36.33046747432026],[127.43236661629402,36.330182523230974],[127.43288958531718,36.33039044124213],[127.43338604128957,36.32948403744258],[127.43307864708538,36.32936360289928],[127.43320177378791,36.329177732642435],[127.43295709547414,36.32908316639529],[127.43306866184832,36.32884759711732],[127.43325532495788,36.32890781476202],[127.43335443355704,36.32875728487119],[127.43326634078119,36.32872524850653],[127.43363583331615,36.328145141341224],[127.43374771399812,36.32817029853091],[127.43376836760797,36.328135765906225],[127.43367740216382,36.32809483215529],[127.43383605172278,36.327764844377995],[127.43375177784975,36.32771427684901],[127.43410045911293,36.32707241457632],[127.43415361164193,36.327089775014684],[127.43424888497452,36.32690553790182],[127.43418855190231,36.32688506543958],[127.4343563530872,36.32659191293821],[127.43428116941084,36.32650042743089],[127.434009025835,36.326398759746226],[127.43389710075371,36.326444360382936],[127.43374196763853,36.32639185010426],[127.4337285530093,36.32633819801656],[127.43342674691036,36.3262304651101],[127.4331280101552,36.32666685252855],[127.43313902594917,36.326711424443644],[127.43304628190549,36.32674483267354],[127.43261123081851,36.326600538825545],[127.43195455823053,36.327390178656955],[127.43197180723803,36.327448455580964],[127.43223371907095,36.32754419455462],[127.43228403285605,36.3274928847332],[127.43241581056145,36.327588164115085],[127.43214697021529,36.32815184130996],[127.43208569028428,36.32832167413193],[127.4318903297364,36.32824329631198],[127.43180810959029,36.32839373798164],[127.43169751192829,36.32835593388033],[127.43164675822487,36.32842808680242],[127.43154619771673,36.328399162720316],[127.43151412946588,36.32847634136668],[127.4317200163324,36.32855817355009],[127.43163952950249,36.32872545151032],[127.43167352268694,36.32874362456066],[127.43150976482576,36.329050624273975],[127.43133232313068,36.328987747529354],[127.4313373933739,36.32896921351552],[127.43082428068601,36.328768154265845],[127.43012507136058,36.32965183807896],[127.43012507026305,36.329663635174725]]]}'),
+        4326
+      )
+    )
+  );
+
+  IF NOT ST_IsValid(candidate) THEN
+    RAISE EXCEPTION
+      'Daejeon Jungang Market seed geometry is invalid: %',
+      ST_IsValidReason(candidate);
+  END IF;
+
+  IF ST_NPoints(candidate) <> 55 THEN
+    RAISE EXCEPTION
+      'Daejeon Jungang Market seed must contain 55 positions, found %',
+      ST_NPoints(candidate);
+  END IF;
+
+  SELECT *
+  INTO existing_boundary
+  FROM market_boundaries
+  WHERE market_id = 'daejeon-jungang-market'
+    AND revision = 1
+  FOR UPDATE;
+
+  IF FOUND THEN
+    IF NOT ST_Equals(existing_boundary.boundary, candidate) THEN
+      RAISE EXCEPTION
+        'Existing Daejeon Jungang Market revision 1 differs from the seed geometry';
+    END IF;
+
+    IF existing_boundary.status = 'retired' THEN
+      RAISE EXCEPTION
+        'Retired Daejeon Jungang Market revision 1 cannot be promoted by the seed migration';
+    END IF;
+
+    UPDATE market_boundaries
+    SET status = 'verified',
+        source = CAST('{"method":"flyway-seed-migration","migration":"V3__seed_verified_daejeon_jungang_boundary","legacyId":"market-1786898463165","legacyName":"Daejeon_Jungang_Market","capturedAt":"2026-08-16T16:41:03.165Z","sourcePointCount":54,"sourceSha256":"d265ff0f3949a3095cdf584df6d389372f05c41b45f5b726ff789ed902483925"}' AS jsonb),
+        valid_from = COALESCE(valid_from, now()),
+        valid_to = NULL,
+        verified_at = COALESCE(verified_at, now()),
+        updated_at = now()
+    WHERE market_id = 'daejeon-jungang-market'
+      AND revision = 1;
+
+    RETURN;
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM market_boundaries
+    WHERE market_id = 'daejeon-jungang-market'
+  ) THEN
+    RAISE EXCEPTION
+      'Daejeon Jungang Market has boundaries but revision 1 is missing';
+  END IF;
+
+  INSERT INTO market_boundaries (
+    market_id,
+    revision,
+    status,
+    boundary,
+    source,
+    valid_from,
+    verified_at
+  )
+  VALUES (
+    'daejeon-jungang-market',
+    1,
+    'verified',
+    candidate,
+    CAST('{"method":"flyway-seed-migration","migration":"V3__seed_verified_daejeon_jungang_boundary","legacyId":"market-1786898463165","legacyName":"Daejeon_Jungang_Market","capturedAt":"2026-08-16T16:41:03.165Z","sourcePointCount":54,"sourceSha256":"d265ff0f3949a3095cdf584df6d389372f05c41b45f5b726ff789ed902483925"}' AS jsonb),
+    now(),
+    now()
+  );
+END
+$migration$;
