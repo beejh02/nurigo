@@ -1,0 +1,14 @@
+# Local agent scaffolding
+.codex-tmp/
+
+# IDE state
+.idea/
+*.iml
+
+# Java build output
+apps/api/target/
+
+# Local environment files
+.env
+.env.*
+!.env.example
