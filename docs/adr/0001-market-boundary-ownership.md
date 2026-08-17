@@ -23,4 +23,4 @@
 - 모바일 화면은 파일 import가 아니라 `MarketBoundaryRepository`에 의존합니다.
 - API가 준비되기 전에는 bundled repository가 같은 인터페이스를 임시 구현합니다.
 - 경계 변경 시 revision 불일치가 감지되며, 클라이언트는 새 경계를 받은 뒤 다시 요청해야 합니다.
-- 백엔드 프레임워크 선택은 보류하지만 PostGIS 스키마와 OpenAPI 계약은 구현체가 준수해야 합니다.
+- 백엔드 프레임워크는 후속 [ADR 0002](./0002-spring-boot-api.md)에서 Spring Boot로 확정했으며, 구현체는 기존 PostGIS 스키마와 OpenAPI 계약을 준수합니다.
