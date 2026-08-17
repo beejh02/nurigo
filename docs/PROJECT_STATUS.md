@@ -25,13 +25,17 @@
 - 3개 이상의 정점과 시장 이름을 받아 `MarketPolygon` JSON 생성
 - Expo 앱 문서 디렉터리에 `시장명-timestamp.json` 형식으로 저장
 - 저장된 시장 경계 파일을 ADB로 추출하여 루트 JSON으로 확보하고 Git에 반영
+- PostGIS 시장·경계 revision migration과 시장 경계 OpenAPI 계약 작성
+- 시장 경계 백엔드 소유권을 ADR로 확정
+- 모바일 위치, repository, Polygon 편집·저장, 지도와 UI 컴포넌트 분리
+- `mobile/src/app/index.tsx`를 화면 조립 역할로 축소
 
 ## 로컬 구현·검증 대기
 
 다음 변경은 현재 워크트리에 있지만 아직 커밋되지 않았습니다.
 
 - 루트 시장 데이터를 `mobile/src/data/`에 번들 데이터로 복사
-- 번들 JSON을 `mobile/src/app/index.tsx`에서 불러와 주황색 전통시장 Polygon으로 상시 표시
+- bundled repository가 JSON을 읽어 주황색 전통시장 Polygon으로 상시 표시
 - 기존 Polygon 편집·저장 흐름과 등록 시장 Polygon을 한 화면에서 구분
 
 `mobile/`에서 `npx.cmd tsc --noEmit`은 통과했습니다. 실제 Android 기기 또는 Emulator에서 등록 Polygon이 렌더링되는지는 아직 다시 확인해야 합니다.
@@ -44,6 +48,7 @@
 - 위치가 변경될 때 판정을 갱신하는 추적 정책
 - 지오펜스 단위 테스트와 실기기 경계 테스트
 - 사용자, 미션, 진행도, 리워드를 저장하고 검증하는 API
+- OpenAPI를 실제로 제공하는 API 서버와 PostGIS 배포 환경
 - 시장과 미션을 관리하는 운영자 화면
 
 ## 시장 데이터 현황
@@ -63,7 +68,6 @@
 - `mobile/app.json`과 생성된 `mobile/android/`가 Git에서 제외되어 새 clone만으로 네이티브 설정을 완전히 재현할 수 없습니다.
 - Naver Map 설정에 필요한 로컬 Client ID를 전달하는 템플릿과 온보딩 절차가 아직 없습니다.
 - 시장 JSON이 루트와 앱 안에 중복되어 수동 복사 시 내용이 달라질 수 있습니다.
-- 단일 시장 파일을 직접 import하므로 시장 목록을 확장하거나 지역별로 조회할 카탈로그가 없습니다.
-- 화면, 위치 처리, Polygon 편집과 파일 저장이 `mobile/src/app/index.tsx` 하나에 모여 있습니다.
+- bundled repository에는 단일 시장만 있어 실제 API 기반 카탈로그와 캐시가 없습니다.
 - 현재 위치는 한 번만 가져오므로 실제 이동에 따른 구역 상태 변화는 반영하지 않습니다.
 - 정적 타입 검사는 통과했지만 자동화된 테스트와 실기기 회귀 검증은 없습니다.

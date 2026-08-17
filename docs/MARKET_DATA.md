@@ -7,8 +7,9 @@
 ## 결정 요약
 
 - 루트에 시장 JSON을 계속 추가하지 않습니다.
-- 시장 하나당 GeoJSON 파일 하나를 기본으로 사용합니다.
-- `packages/market-data`를 모바일, API와 관리자 화면이 함께 쓰는 유일한 원본으로 둡니다.
+- 운영 중인 시장 경계의 유일한 원본은 백엔드 PostGIS 데이터베이스입니다.
+- GeoJSON은 관리자 API의 입출력, 초기 seed와 테스트 fixture 형식으로 사용합니다.
+- `packages/market-data`는 공유 계약, 변환기, 검증기와 seed import 도구를 제공합니다.
 - 현재 루트와 모바일의 기존 시장 JSON은 마이그레이션이 끝날 때까지 유지하는 레거시 데이터입니다.
 - 모바일용 좌표 변환과 Naver Map의 좌표 방향 처리는 어댑터에서 수행합니다.
 - 검수되지 않은 시장 경계로 미션이나 리워드를 판정하지 않습니다.
@@ -22,19 +23,20 @@
 mobile/src/data/<market-boundary>.json
 ```
 
-당장은 파일을 삭제하거나 이동하지 않습니다. 먼저 `packages/market-data`와 변환·검증 테스트를 만든 뒤 다음 순서로 한 번만 이관합니다.
+당장은 파일을 삭제하거나 이동하지 않습니다. PostGIS와 시장 경계 API 구현 뒤 다음 순서로 한 번만 이관합니다.
 
 1. 현재 54개 좌표와 파일 해시를 마이그레이션 기준으로 기록합니다.
 2. 파일명과 `name`의 오기·표기를 공식 한글 시장명으로 정규화하고 안정된 시장 ID를 부여합니다.
 3. `{ latitude, longitude }`를 GeoJSON의 `[longitude, latitude]`로 변환합니다.
 4. 첫 좌표를 마지막에 다시 추가해 LinearRing을 닫습니다.
 5. 외곽 링을 GeoJSON 표준 방향으로 정규화하고 메타데이터를 채웁니다.
-6. 패키지 어댑터가 기존 Naver Map 화면과 동일한 경계를 만드는지 비교합니다.
-7. 모바일 import와 지오펜스 테스트가 통과한 뒤 루트와 모바일의 레거시 JSON을 같은 커밋에서 제거합니다.
+6. seed import로 PostGIS에 revision 1 draft를 생성하고 검수 후 verified로 전환합니다.
+7. API 응답을 사용하는 repository가 기존 Naver Map 화면과 동일한 경계를 만드는지 비교합니다.
+8. API 연결과 지오펜스 테스트가 통과한 뒤 루트와 모바일의 레거시 JSON을 같은 커밋에서 제거합니다.
 
 이관이 끝나기 전에는 새 시장 파일을 루트에 추가하지 않습니다. 새 좌표는 임시 추출물로만 보관하고 패키지 규격으로 검수해 반영합니다.
 
-## 목표 디렉터리
+## 목표 지원 패키지
 
 ```text
 packages/market-data/
@@ -42,22 +44,23 @@ packages/market-data/
 ├─ schema/
 │  └─ market-boundary.schema.json
 ├─ scripts/
-│  └─ validate-market-data.mjs
+│  ├─ validate-market-data.mjs
+│  └─ import-market-seed.mjs
 └─ src/
    ├─ index.ts
    ├─ adapters/
    │  └─ to-naver-map-coordinates.ts
-   └─ markets/
+   └─ fixtures/
       └─ daejeon/
          ├─ <market-id>.geojson
          └─ <another-market-id>.geojson
 ```
 
-파일명과 `Feature.id`는 소문자 kebab-case의 안정된 ID를 사용합니다. 시장 이름이 바뀌더라도 기존 사용자 진행도와 API 참조가 깨지지 않도록 ID는 변경하지 않습니다.
+이 디렉터리의 GeoJSON은 seed와 테스트 입력이며 운영 원본이 아닙니다. 파일명과 `Feature.id`는 소문자 kebab-case의 안정된 ID를 사용합니다. 시장 이름이 바뀌더라도 기존 사용자 진행도와 API 참조가 깨지지 않도록 ID는 변경하지 않습니다.
 
-## 표준 저장 형식
+## 표준 교환 형식
 
-원본은 [RFC 7946 GeoJSON](https://www.rfc-editor.org/info/rfc7946/)의 `Feature`로 저장합니다. 하나로 이어진 시장은 `Polygon`, 서로 떨어진 구역을 하나의 시장으로 관리해야 하면 `MultiPolygon`을 사용합니다.
+관리자 API, seed와 fixture는 [RFC 7946 GeoJSON](https://www.rfc-editor.org/info/rfc7946/)의 `Feature`를 사용합니다. 백엔드는 이를 PostGIS `geometry(MultiPolygon, 4326)`로 정규화해 저장합니다. 하나로 이어진 시장은 `Polygon`, 서로 떨어진 구역을 하나의 시장으로 관리해야 하면 `MultiPolygon`을 교환 형식으로 사용할 수 있습니다.
 
 ```json
 {
@@ -104,7 +107,7 @@ GeoJSON은 경도, 위도 순서인 `[longitude, latitude]`를 사용하며 Poly
 
 ## 자동 검증 규칙
 
-패키지의 검증 명령은 최소한 다음 조건을 확인합니다.
+seed 검증기와 백엔드는 최소한 다음 조건을 확인합니다.
 
 - JSON Schema와 `schemaVersion` 일치
 - 파일명, `Feature.id`와 카탈로그 ID 일치 및 중복 없음
@@ -115,16 +118,16 @@ GeoJSON은 경도, 위도 순서인 `[longitude, latitude]`를 사용하며 Poly
 - 연속으로 중복된 위치, 0에 가까운 면적과 명백한 자기 교차가 없음
 - `verified` 데이터에는 `verifiedAt`이 존재
 
-검증에 실패한 데이터는 앱 번들과 API 배포물에 포함하지 않습니다.
+검증에 실패한 데이터는 PostGIS에 verified revision으로 등록하거나 API로 배포하지 않습니다.
 
 ## 앱과 API에서 사용하는 방법
 
-`packages/market-data`는 원본 GeoJSON과 함께 다음 읽기 계약을 제공합니다.
+백엔드 API는 다음 읽기 계약을 제공하고 `packages/market-data`는 wire type과 좌표 어댑터를 공유합니다.
 
 - 대전 지역의 활성 시장 목록 조회
 - 안정된 ID로 시장 조회
 - 시장 중심점 또는 bounding box 조회
-- GeoJSON 경계를 Naver Map Polygon 좌표로 변환
-- 지오펜스 패키지가 사용할 `Polygon | MultiPolygon` 경계 제공
+- verified GeoJSON 경계를 Naver Map Polygon 좌표로 변환
+- 지오펜스 패키지가 사용할 `Polygon | MultiPolygon` 계약 제공
 
-MVP에서는 검증된 시장 데이터를 모바일에 번들합니다. 이후 운영 중 경계 갱신이 필요하면 API가 최신 revision을 제공하고 모바일은 검증된 로컬 데이터를 캐시합니다. 리워드 발급 시에는 API가 자신이 보유한 동일 revision의 경계로 최종 판정합니다.
+현재 프로토타입은 `MarketBoundaryRepository`의 bundled 구현으로 기존 JSON을 임시 사용합니다. API가 실행 가능해지면 HTTP 구현으로 교체하고 모바일은 verified 경계를 캐시합니다. 리워드 발급 시에는 API가 현재 verified revision과 `ST_Covers`로 최종 판정합니다.

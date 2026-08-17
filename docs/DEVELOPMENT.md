@@ -59,10 +59,11 @@ Naver Map은 네이티브 의존성을 포함하므로 Expo Go만으로는 현�
 2. Polygon 이름을 입력해 앱 문서 디렉터리에 JSON을 저장합니다.
 3. 개발용 Android 앱의 내부 `files` 디렉터리에서 JSON을 추출합니다.
 4. 추출 파일은 임시 수집물로 보관하고 좌표, 이름, 지역과 출처를 검수합니다.
-5. 검수한 데이터를 표준 GeoJSON으로 변환해 `packages/market-data`의 해당 지역 디렉터리에 반영합니다.
-6. 모바일은 원본 파일을 복사하지 않고 패키지의 Naver Map 어댑터를 통해 좌표를 받습니다.
+5. 검수한 데이터를 표준 GeoJSON seed로 변환하고 백엔드 import 도구로 PostGIS에 draft revision을 생성합니다.
+6. 관리자 검수 후 revision을 verified로 전환합니다.
+7. 모바일은 시장 경계 API를 repository를 통해 조회하고 Naver Map 좌표로 변환합니다.
 
-현재 루트에 있는 JSON은 이 흐름을 도입하기 전의 레거시 데이터입니다. 새 시장을 수집하기 전에 [시장 경계 데이터 관리](./MARKET_DATA.md)의 패키지와 검증 절차를 먼저 구현합니다.
+현재 루트에 있는 JSON은 이 흐름을 도입하기 전의 레거시 데이터입니다. API 서버가 준비되기 전까지 모바일의 bundled repository가 임시로 사용합니다. 새 시장을 운영 데이터로 추가하기 전에는 [시장 경계 데이터 관리](./MARKET_DATA.md)의 검증·PostGIS 적재 절차를 먼저 구현합니다.
 
 ADB로 앱 내부 파일을 확인할 때는 로컬 앱 설정의 Android package 값을 사용합니다.
 

@@ -10,14 +10,16 @@
 nurigo/
 ├─ README.md
 ├─ <market-boundary>.json           # 현재 레거시 임시 원본
+├─ apps/api/                        # PostGIS migration과 OpenAPI 계약
 ├─ docs/
 └─ mobile/                          # 현재 Expo 앱
-   ├─ src/app/index.tsx
+   ├─ src/app/index.tsx             # 화면 조립
+   ├─ src/features/                 # 위치·시장 기능 모듈
    └─ src/data/
       └─ <market-boundary>.json      # 현재 앱 번들 복사본
 ```
 
-문서화 단계에서는 기존 `mobile/`을 이동하거나 런타임 코드를 분리하지 않습니다.
+현재 모바일은 `MarketBoundaryRepository`를 사용하며 기존 JSON은 임시 bundled 구현 안에 격리되어 있습니다. 실제 API 서버와 PostGIS 데이터베이스는 아직 실행되지 않습니다.
 
 ## 목표 모노레포
 
@@ -30,7 +32,7 @@ nurigo/
 ├─ packages/
 │  ├─ contracts/       # 앱·관리자·API가 공유하는 타입과 계약
 │  ├─ geo/             # Polygon 검증과 지오펜스 순수 로직
-│  ├─ market-data/     # 검증된 시장별 GeoJSON과 지도 어댑터
+│  ├─ market-data/     # 공유 계약·어댑터·검증기·seed 도구
 │  └─ config/          # 공통 TypeScript·Lint·빌드 설정
 ├─ docs/
 └─ package.json        # npm workspaces 루트
@@ -42,24 +44,25 @@ nurigo/
 
 - **Mobile**: 위치 권한과 센서 접근, 시장 탐색, 미션 참여, 사용자 상태 표시
 - **Admin**: 시장 구역, 미션, 보상 재고와 운영 상태 관리
-- **API**: 사용자 인증, 참여 증거 검증, 진행도 갱신, 중복 방지와 리워드 발급
+- **API**: PostGIS 시장 경계 원본, revision 배포, 사용자 인증, 참여 증거 검증과 리워드 발급
 - **Contracts**: 서비스 경계를 넘는 안정된 타입과 요청·응답 계약
 - **Geo**: 플랫폼에 의존하지 않는 좌표·Polygon 검증과 내부·외부 판정
-- **Market data**: 검수된 시장별 GeoJSON의 단일 원본, 카탈로그, 버전과 지도 어댑터 관리
+- **Market data**: GeoJSON wire type, 지도 어댑터, 검증기, fixture와 seed import 도구
 - **Config**: 여러 앱과 패키지의 개발 도구 설정 일관성 유지
 
 ## 상위 데이터 흐름
 
 ```mermaid
 flowchart LR
-    A["사용자 모바일 앱"] --> B["GPS·센서 증거"]
-    B --> C["시장 구역 판정"]
-    C --> D["미션 진행"]
-    D --> E["API 검증"]
-    E --> F["리워드 원장·발급"]
-    G["운영자 웹"] --> H["시장·미션·보상 구성"]
-    H --> E
-    F --> A
+    A["운영자 웹"] --> B["시장 경계 API"]
+    B --> C["PostGIS 원본·revision"]
+    C --> B
+    B --> D["모바일 repository·캐시"]
+    D --> E["지도 표시·로컬 사전 판정"]
+    E --> F["위치·revision 증거 제출"]
+    F --> B
+    B --> G["서버 최종 판정·리워드 발급"]
+    G --> D
 ```
 
 모바일 앱은 사용자가 시장 안에 있는지 빠르게 안내할 수 있지만, 실제 미션 완료와 리워드 발급의 최종 권한은 API가 가집니다. 클라이언트 판정만으로 보상을 발급하지 않습니다.
@@ -82,11 +85,11 @@ type MarketPolygon = {
 
 Polygon은 최소 3개의 유효한 정점을 가져야 합니다. 현재 검증용 전통시장 데이터는 54개의 시계 방향 정점으로 구성되어 있습니다. 이 계약은 앱 프로토타입에서 만든 레거시 형식이며 새 시장의 영구 저장 규격으로 확장하지 않습니다.
 
-목표 구조에서는 `packages/market-data`가 대전 지역 시장별 GeoJSON과 카탈로그의 유일한 원본이 됩니다. GeoJSON 좌표를 앱의 `{ latitude, longitude }`와 Naver Map이 요구하는 방향으로 바꾸는 작업은 패키지 어댑터가 담당합니다. 세부 규격과 현재 JSON의 이관 절차는 [시장 경계 데이터 관리](./MARKET_DATA.md)에 정의합니다.
+목표 구조에서는 백엔드 PostGIS가 시장별 경계와 revision의 유일한 원본이 됩니다. `packages/market-data`는 GeoJSON 좌표를 앱의 `{ latitude, longitude }`와 Naver Map 형식으로 바꾸는 어댑터 및 seed 도구만 담당합니다. 세부 규격과 현재 JSON의 이관 절차는 [시장 경계 데이터 관리](./MARKET_DATA.md)에 정의합니다.
 
 ## 다음 지오펜스 계약
 
-`MarketBoundary`는 `packages/market-data`가 제공하는 GeoJSON `Polygon | MultiPolygon` 경계입니다.
+`MarketBoundary`는 백엔드 API가 제공하고 모바일 repository가 앱 도메인 좌표로 변환한 `Polygon | MultiPolygon` 경계입니다.
 
 ```ts
 isPointInMarket(
@@ -100,7 +103,7 @@ isPointInMarket(
 - `Polygon`과 분리 구역이 있는 `MultiPolygon`을 동일한 계약으로 처리합니다.
 - 정점이 부족하거나 숫자가 아닌 좌표를 포함한 경계는 안전하게 `false`를 반환합니다.
 - 중심점, 명확한 외부점, 각 경계선, 꼭짓점과 잘못된 입력을 단위 테스트합니다.
-- 모바일 앱의 로컬 판정 결과는 사용자 안내에 사용하고, 보상과 관련된 최종 판정은 API에서 동일한 규칙으로 재검증합니다.
+- 모바일 앱의 로컬 판정 결과는 사용자 안내에 사용하고, 보상과 관련된 최종 판정은 API가 PostGIS `ST_Covers`로 재검증합니다.
 
 ## 미션과 리워드 경계
 
