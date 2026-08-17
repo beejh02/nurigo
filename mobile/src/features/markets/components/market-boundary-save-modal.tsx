@@ -8,22 +8,32 @@ import {
 } from 'react-native';
 
 
-type MarketNameModalProps = {
+type MarketBoundarySaveModalProps = {
   visible: boolean;
   marketName: string;
-  onChangeMarketName: (name: string) => void;
+  regionCode: string;
+  adminToken: string;
+  isSaving: boolean;
+  onChangeMarketName: (marketName: string) => void;
+  onChangeRegionCode: (regionCode: string) => void;
+  onChangeAdminToken: (token: string) => void;
   onCancel: () => void;
   onConfirm: () => void;
 };
 
 
-export function MarketNameModal({
+export function MarketBoundarySaveModal({
   visible,
   marketName,
+  regionCode,
+  adminToken,
+  isSaving,
   onChangeMarketName,
+  onChangeRegionCode,
+  onChangeAdminToken,
   onCancel,
   onConfirm,
-}: MarketNameModalProps) {
+}: MarketBoundarySaveModalProps) {
   return (
     <Modal
       visible={
@@ -43,12 +53,17 @@ export function MarketNameModal({
       <View style={styles.modalBackground}>
         <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>
-            시장 이름 입력
+            DB에 경계 저장
           </Text>
 
 
           <Text style={styles.modalDescription}>
-            저장할 Polygon의 이름을 입력해주세요.
+            새 시장과 선택한 Polygon을 PostGIS에 draft로 저장합니다.
+          </Text>
+
+
+          <Text style={styles.inputLabel}>
+            시장명
           </Text>
 
 
@@ -63,13 +78,81 @@ export function MarketNameModal({
               onChangeMarketName
             }
 
-            placeholder="예: 전통시장"
+            placeholder="예: 문창전통시장"
+
+            editable={
+              !isSaving
+            }
 
             autoFocus={
               true
             }
+          />
 
-            returnKeyType="done"
+
+          <Text style={styles.inputLabel}>
+            지역 코드
+          </Text>
+
+
+          <TextInput
+            style={styles.input}
+
+            value={
+              regionCode
+            }
+
+            onChangeText={
+              onChangeRegionCode
+            }
+
+            placeholder="예: daejeon"
+
+            editable={
+              !isSaving
+            }
+
+            autoCapitalize="none"
+
+            autoCorrect={
+              false
+            }
+          />
+
+
+          <Text style={styles.inputLabel}>
+            관리자 토큰
+          </Text>
+
+
+          <TextInput
+            style={styles.input}
+
+            value={
+              adminToken
+            }
+
+            onChangeText={
+              onChangeAdminToken
+            }
+
+            placeholder="관리자 토큰"
+
+            editable={
+              !isSaving
+            }
+
+            secureTextEntry={
+              true
+            }
+
+            autoCapitalize="none"
+
+            autoCorrect={
+              false
+            }
+
+            returnKeyType="send"
 
             onSubmitEditing={
               onConfirm
@@ -77,12 +160,24 @@ export function MarketNameModal({
           />
 
 
+          <Text style={styles.tokenHelp}>
+            토큰은 앱 파일이나 환경변수에 저장하지 않습니다.
+          </Text>
+
+
           <View style={styles.modalButtonRow}>
             <Pressable
               style={[
                 styles.modalButton,
                 styles.cancelButton,
+                isSaving
+                  ? styles.disabledButton
+                  : null,
               ]}
+
+              disabled={
+                isSaving
+              }
 
               onPress={
                 onCancel
@@ -98,14 +193,23 @@ export function MarketNameModal({
               style={[
                 styles.modalButton,
                 styles.confirmButton,
+                isSaving
+                  ? styles.disabledButton
+                  : null,
               ]}
+
+              disabled={
+                isSaving
+              }
 
               onPress={
                 onConfirm
               }
             >
               <Text style={styles.confirmButtonText}>
-                저장
+                {isSaving
+                  ? '저장 중...'
+                  : 'DB 저장'}
               </Text>
             </Pressable>
           </View>
@@ -156,13 +260,28 @@ const styles =
 
     modalDescription: {
       marginTop:
-        6,
+        8,
 
       marginBottom:
-        14,
+        10,
 
       fontSize:
         13,
+    },
+
+
+    inputLabel: {
+      marginTop:
+        8,
+
+      marginBottom:
+        4,
+
+      fontSize:
+        13,
+
+      fontWeight:
+        '600',
     },
 
 
@@ -184,6 +303,18 @@ const styles =
 
       fontSize:
         16,
+    },
+
+
+    tokenHelp: {
+      marginTop:
+        6,
+
+      color:
+        '#666666',
+
+      fontSize:
+        12,
     },
 
 
@@ -223,6 +354,12 @@ const styles =
     confirmButton: {
       backgroundColor:
         '#222222',
+    },
+
+
+    disabledButton: {
+      opacity:
+        0.5,
     },
 
 

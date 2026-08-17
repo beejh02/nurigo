@@ -6,27 +6,31 @@ import {
 } from 'react-native';
 
 import type {
-  SavedMarketPolygon,
+  SubmittedMarketBoundaryDraft,
 } from '../types';
 
 
 type PolygonEditorPanelProps = {
+  registeredBoundaryCount: number;
   pointCount: number;
-  savedPolygon: SavedMarketPolygon | null;
+  submittedDraft: SubmittedMarketBoundaryDraft | null;
+  isSaving: boolean;
   onUndo: () => void;
   onReset: () => void;
   onRequestSave: () => void;
-  onClearSavedPolygon: () => void;
+  onClearSubmittedDraft: () => void;
 };
 
 
 export function PolygonEditorPanel({
+  registeredBoundaryCount,
   pointCount,
-  savedPolygon,
+  submittedDraft,
+  isSaving,
   onUndo,
   onReset,
   onRequestSave,
-  onClearSavedPolygon,
+  onClearSubmittedDraft,
 }: PolygonEditorPanelProps) {
   return (
     <View style={styles.controlPanel}>
@@ -36,13 +40,13 @@ export function PolygonEditorPanel({
 
 
       <Text style={styles.registeredMarketText}>
-        등록된 전통시장 경계
+        검수된 전통시장 경계: {registeredBoundaryCount}개
       </Text>
 
 
-      {savedPolygon ? (
+      {submittedDraft ? (
         <Text style={styles.savedMarketName}>
-          저장된 영역: {savedPolygon.name}
+          DB 저장 영역: {submittedDraft.name}
         </Text>
       ) : (
         <Text style={styles.pointCount}>
@@ -51,7 +55,7 @@ export function PolygonEditorPanel({
       )}
 
 
-      {!savedPolygon && (
+      {!submittedDraft && (
         <>
           <View style={styles.buttonRow}>
             <View style={styles.button}>
@@ -60,6 +64,7 @@ export function PolygonEditorPanel({
 
                 disabled={
                   pointCount === 0
+                  || isSaving
                 }
 
                 onPress={
@@ -75,6 +80,7 @@ export function PolygonEditorPanel({
 
                 disabled={
                   pointCount === 0
+                  || isSaving
                 }
 
                 onPress={
@@ -87,10 +93,15 @@ export function PolygonEditorPanel({
 
           <View style={styles.saveButton}>
             <Button
-              title="Polygon 저장"
+              title={
+                isSaving
+                  ? 'DB 저장 중...'
+                  : 'DB에 Polygon 저장'
+              }
 
               disabled={
                 pointCount < 3
+                || isSaving
               }
 
               onPress={
@@ -120,10 +131,21 @@ export function PolygonEditorPanel({
       )}
 
 
-      {savedPolygon && (
+      {submittedDraft && (
         <>
           <Text style={styles.savedText}>
-            {savedPolygon.points.length}개의 정점이 저장되었습니다.
+            draft revision {submittedDraft.revision} · {submittedDraft.points.length}개 정점
+          </Text>
+
+
+          <Text
+            style={styles.marketIdText}
+
+            selectable={
+              true
+            }
+          >
+            시장 ID: {submittedDraft.marketId}
           </Text>
 
 
@@ -132,7 +154,7 @@ export function PolygonEditorPanel({
               title="새 영역 만들기"
 
               onPress={
-                onClearSavedPolygon
+                onClearSubmittedDraft
               }
             />
           </View>
@@ -268,6 +290,21 @@ const styles =
     savedText: {
       marginTop:
         8,
+
+      textAlign:
+        'center',
+    },
+
+
+    marketIdText: {
+      marginTop:
+        6,
+
+      color:
+        '#555555',
+
+      fontSize:
+        11,
 
       textAlign:
         'center',

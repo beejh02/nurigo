@@ -76,6 +76,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /v1/admin/markets:
+    post:
+      operationId: createMarketWithBoundaryDraft
+      summary: 새 시장과 첫 경계 draft를 함께 등록
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/geo+json:
+            schema:
+              $ref: '#/components/schemas/NewMarketBoundaryDraftFeature'
+      responses:
+        '201':
+          description: 생성된 시장의 첫 draft
+          content:
+            application/geo+json:
+              schema:
+                $ref: '#/components/schemas/MarketBoundaryFeature'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/InvalidBoundary'
+        '503':
+          $ref: '#/components/responses/AdminAuthNotConfigured'
   /v1/admin/markets/{marketId}/boundaries:
     post:
       operationId: createMarketBoundaryDraft
@@ -97,10 +124,16 @@ paths:
             application/geo+json:
               schema:
                 $ref: '#/components/schemas/MarketBoundaryFeature'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/InvalidBoundary'
+        '503':
+          $ref: '#/components/responses/AdminAuthNotConfigured'
   /v1/admin/markets/{marketId}/boundaries/{revision}/verify:
     post:
       operationId: verifyMarketBoundary
@@ -122,6 +155,10 @@ paths:
             application/geo+json:
               schema:
                 $ref: '#/components/schemas/MarketBoundaryFeature'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -130,12 +167,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '503':
+          $ref: '#/components/responses/AdminAuthNotConfigured'
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: JWT
+      description: >-
+        초기 관리자 API는 환경변수로 주입한 opaque Bearer token을 사용합니다.
+        운영 사용자·관리자 인증 형식은 후속 인증 ADR에서 확정합니다.
   parameters:
     MarketId:
       name: marketId
@@ -145,8 +186,26 @@ components:
         type: string
         pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
   responses:
+    InvalidRequest:
+      description: path, query 또는 JSON 요청 형식이 유효하지 않음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Unauthorized:
+      description: Bearer token이 없거나 올바르지 않음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     NotFound:
       description: 시장 또는 경계를 찾을 수 없음
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    AdminAuthNotConfigured:
+      description: 서버에 관리자 인증 token이 설정되지 않아 관리자 API가 닫혀 있음
       content:
         application/json:
           schema:
@@ -253,6 +312,31 @@ components:
         properties:
           type: object
           properties:
+            source:
+              type: object
+              additionalProperties: true
+        geometry:
+          oneOf:
+            - $ref: '#/components/schemas/PolygonGeometry'
+            - $ref: '#/components/schemas/MultiPolygonGeometry'
+    NewMarketBoundaryDraftFeature:
+      type: object
+      required: [type, properties, geometry]
+      properties:
+        type:
+          const: Feature
+        properties:
+          type: object
+          required: [name, regionCode]
+          properties:
+            name:
+              type: string
+              minLength: 1
+              maxLength: 100
+            regionCode:
+              type: string
+              pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+              maxLength: 50
             source:
               type: object
               additionalProperties: true

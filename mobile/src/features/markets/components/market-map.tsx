@@ -12,15 +12,15 @@ import {
 import type {
   Coordinate,
   MarketBoundary,
-  SavedMarketPolygon,
+  SubmittedMarketBoundaryDraft,
 } from '../types';
 
 
 type MarketMapProps = {
   currentLocation: Coordinate;
-  boundary: MarketBoundary;
+  boundaries: MarketBoundary[];
   polygonPoints: Coordinate[];
-  savedPolygon: SavedMarketPolygon | null;
+  submittedDraft: SubmittedMarketBoundaryDraft | null;
   onTapMap: (point: Coordinate) => void;
 };
 
@@ -41,17 +41,11 @@ function getBoundaryPolygons(
 
 export function MarketMap({
   currentLocation,
-  boundary,
+  boundaries,
   polygonPoints,
-  savedPolygon,
+  submittedDraft,
   onTapMap,
 }: MarketMapProps) {
-  const boundaryPolygons =
-    getBoundaryPolygons(
-      boundary,
-    );
-
-
   return (
     <NaverMapView
       style={styles.map}
@@ -97,37 +91,42 @@ export function MarketMap({
       />
 
 
-      {boundaryPolygons.map(
-        (
-          rings,
-          polygonIndex,
-        ) => (
-          <NaverMapPolygonOverlay
-            key={
-              `${boundary.marketId}-${boundary.revision}-${polygonIndex}`
-            }
+      {boundaries.flatMap(
+        (boundary) =>
+          getBoundaryPolygons(
+            boundary,
+          ).map(
+            (
+              rings,
+              polygonIndex,
+            ) => (
+              <NaverMapPolygonOverlay
+                key={
+                  `${boundary.marketId}-${boundary.revision}-${polygonIndex}`
+                }
 
-            coords={
-              rings[0] ?? []
-            }
+                coords={
+                  rings[0] ?? []
+                }
 
-            holes={
-              rings.slice(1)
-            }
+                holes={
+                  rings.slice(1)
+                }
 
-            color={
-              'rgba(255, 140, 0, 0.20)'
-            }
+                color={
+                  'rgba(255, 140, 0, 0.20)'
+                }
 
-            outlineColor={
-              '#ff8c00'
-            }
+                outlineColor={
+                  '#ff8c00'
+                }
 
-            outlineWidth={
-              3
-            }
-          />
-        ),
+                outlineWidth={
+                  3
+                }
+              />
+            ),
+          ),
       )}
 
 
@@ -180,10 +179,10 @@ export function MarketMap({
       )}
 
 
-      {savedPolygon && (
+      {submittedDraft && (
         <NaverMapPolygonOverlay
           coords={
-            savedPolygon.points
+            submittedDraft.points
           }
 
           color={

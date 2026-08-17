@@ -1,0 +1,21 @@
+name: nurigo-api
+
+services:
+  postgis:
+    image: postgis/postgis:17-3.5
+    environment:
+      POSTGRES_DB: nurigo
+      POSTGRES_USER: nurigo
+      POSTGRES_PASSWORD: nurigo
+    ports:
+      - "127.0.0.1:${NURIGO_DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nurigo -d nurigo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - nurigo-postgis-data:/var/lib/postgresql/data
+
+volumes:
+  nurigo-postgis-data:

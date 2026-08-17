@@ -15,7 +15,7 @@ type UseMarketBoundaryOptions = {
 
 
 type MarketBoundaryState = {
-  boundary: MarketBoundary | null;
+  boundaries: MarketBoundary[];
   error: string | null;
   isLoading: boolean;
 };
@@ -25,11 +25,14 @@ export function useMarketBoundary(
   repository: MarketBoundaryRepository,
   options?: UseMarketBoundaryOptions,
 ): MarketBoundaryState {
-  const [boundary, setBoundary] =
-    useState<MarketBoundary | null>(null);
+  const [boundaries, setBoundaries] =
+    useState<MarketBoundary[]>([]);
 
   const [error, setError] =
     useState<string | null>(null);
+
+  const [isLoading, setIsLoading] =
+    useState(true);
 
   const regionCode =
     options?.regionCode;
@@ -40,6 +43,15 @@ export function useMarketBoundary(
 
 
     async function loadBoundary() {
+      setIsLoading(
+        true,
+      );
+
+      setError(
+        null,
+      );
+
+
       try {
         const markets =
           await repository.listMarkets({
@@ -47,33 +59,32 @@ export function useMarketBoundary(
           });
 
 
-        const firstMarket =
-          markets[0];
+        const loadedBoundaries =
+          await Promise.all(
+            markets.map(
+              async (market) => {
+                const loadedBoundary =
+                  await repository.getBoundary(
+                    market.id,
+                  );
 
 
-        if (!firstMarket) {
-          throw new Error(
-            '등록된 전통시장 경계가 없습니다.',
+                if (!loadedBoundary) {
+                  throw new Error(
+                    `${market.name} 경계를 불러올 수 없습니다.`,
+                  );
+                }
+
+
+                return loadedBoundary;
+              },
+            ),
           );
-        }
-
-
-        const loadedBoundary =
-          await repository.getBoundary(
-            firstMarket.id,
-          );
-
-
-        if (!loadedBoundary) {
-          throw new Error(
-            '전통시장 경계를 불러올 수 없습니다.',
-          );
-        }
 
 
         if (isActive) {
-          setBoundary(
-            loadedBoundary,
+          setBoundaries(
+            loadedBoundaries,
           );
         }
       } catch (loadError) {
@@ -88,6 +99,12 @@ export function useMarketBoundary(
             loadError instanceof Error
               ? loadError.message
               : '전통시장 경계를 불러올 수 없습니다.',
+          );
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(
+            false,
           );
         }
       }
@@ -107,9 +124,8 @@ export function useMarketBoundary(
 
 
   return {
-    boundary,
+    boundaries,
     error,
-    isLoading:
-      !boundary && !error,
+    isLoading,
   };
 }

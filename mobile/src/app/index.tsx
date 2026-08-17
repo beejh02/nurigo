@@ -16,16 +16,20 @@ import {
 } from '@/features/markets/components/market-map';
 
 import {
-  MarketNameModal,
-} from '@/features/markets/components/market-name-modal';
+  MarketBoundarySaveModal,
+} from '@/features/markets/components/market-boundary-save-modal';
 
 import {
   PolygonEditorPanel,
 } from '@/features/markets/components/polygon-editor-panel';
 
 import {
-  bundledMarketBoundaryRepository,
-} from '@/features/markets/repositories/bundled-market-boundary-repository';
+  httpMarketBoundaryRepository,
+} from '@/features/markets/repositories/http-market-boundary-repository';
+
+import {
+  httpMarketBoundaryDraftWriter,
+} from '@/features/markets/repositories/http-market-boundary-draft-writer';
 
 import {
   useMarketBoundary,
@@ -42,15 +46,14 @@ export default function HomeScreen() {
 
   const marketBoundary =
     useMarketBoundary(
-      bundledMarketBoundaryRepository,
-      {
-        regionCode:
-          'daejeon',
-      },
+      httpMarketBoundaryRepository,
     );
 
   const polygonEditor =
-    usePolygonEditor();
+    usePolygonEditor({
+      draftWriter:
+        httpMarketBoundaryDraftWriter,
+    });
 
 
   if (currentLocation.error) {
@@ -85,7 +88,6 @@ export default function HomeScreen() {
 
   if (
     marketBoundary.isLoading
-    || !marketBoundary.boundary
   ) {
     return (
       <ScreenMessage>
@@ -111,16 +113,16 @@ export default function HomeScreen() {
           currentCoordinate
         }
 
-        boundary={
-          marketBoundary.boundary
+        boundaries={
+          marketBoundary.boundaries
         }
 
         polygonPoints={
           polygonEditor.points
         }
 
-        savedPolygon={
-          polygonEditor.savedPolygon
+        submittedDraft={
+          polygonEditor.submittedDraft
         }
 
         onTapMap={
@@ -130,12 +132,20 @@ export default function HomeScreen() {
 
 
       <PolygonEditorPanel
+        registeredBoundaryCount={
+          marketBoundary.boundaries.length
+        }
+
         pointCount={
           polygonEditor.points.length
         }
 
-        savedPolygon={
-          polygonEditor.savedPolygon
+        submittedDraft={
+          polygonEditor.submittedDraft
+        }
+
+        isSaving={
+          polygonEditor.isSaving
         }
 
         onUndo={
@@ -150,27 +160,47 @@ export default function HomeScreen() {
           polygonEditor.requestSave
         }
 
-        onClearSavedPolygon={
-          polygonEditor.clearSavedPolygon
+        onClearSubmittedDraft={
+          polygonEditor.clearSubmittedDraft
         }
       />
 
 
-      <MarketNameModal
+      <MarketBoundarySaveModal
         visible={
-          polygonEditor.isNameModalVisible
+          polygonEditor.isSaveModalVisible
         }
 
         marketName={
           polygonEditor.marketName
         }
 
+        regionCode={
+          polygonEditor.regionCode
+        }
+
+        adminToken={
+          polygonEditor.adminToken
+        }
+
+        isSaving={
+          polygonEditor.isSaving
+        }
+
         onChangeMarketName={
           polygonEditor.setMarketName
         }
 
+        onChangeRegionCode={
+          polygonEditor.setRegionCode
+        }
+
+        onChangeAdminToken={
+          polygonEditor.setAdminToken
+        }
+
         onCancel={
-          polygonEditor.closeNameModal
+          polygonEditor.closeSaveModal
         }
 
         onConfirm={

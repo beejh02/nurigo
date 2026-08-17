@@ -4,10 +4,11 @@ export type Coordinate = {
 };
 
 
-export type SavedMarketPolygon = {
-  id: string;
+export type SubmittedMarketBoundaryDraft = {
+  marketId: string;
   name: string;
-  createdAt: string;
+  revision: number;
+  status: 'draft';
   points: Coordinate[];
 };
 

@@ -8,36 +8,59 @@ import {
   BackHandler,
 } from 'react-native';
 
-import {
-  savePolygonToDocument,
-} from './polygon-storage';
+import type {
+  MarketBoundaryDraftWriter,
+} from './repositories/market-boundary-draft-writer';
 
 import type {
   Coordinate,
-  SavedMarketPolygon,
+  SubmittedMarketBoundaryDraft,
 } from './types';
 
 
-export function usePolygonEditor() {
+type UsePolygonEditorOptions = {
+  draftWriter: MarketBoundaryDraftWriter;
+};
+
+
+export function usePolygonEditor({
+  draftWriter,
+}: UsePolygonEditorOptions) {
   const [points, setPoints] =
     useState<Coordinate[]>([]);
 
-  const [savedPolygon, setSavedPolygon] =
-    useState<SavedMarketPolygon | null>(null);
+  const [submittedDraft, setSubmittedDraft] =
+    useState<SubmittedMarketBoundaryDraft | null>(null);
+
+  const [adminToken, setAdminToken] =
+    useState('');
 
   const [marketName, setMarketName] =
     useState('');
 
-  const [isNameModalVisible, setIsNameModalVisible] =
+  const [regionCode, setRegionCode] =
+    useState('daejeon');
+
+  const [isSaveModalVisible, setIsSaveModalVisible] =
+    useState(false);
+
+  const [isSaving, setIsSaving] =
     useState(false);
 
 
   useEffect(() => {
     const handleBackPress = () => {
-      if (isNameModalVisible) {
-        setIsNameModalVisible(
-          false,
-        );
+      if (isSaveModalVisible) {
+        if (!isSaving) {
+          setAdminToken(
+            '',
+          );
+
+          setIsSaveModalVisible(
+            false,
+          );
+        }
+
 
         return true;
       }
@@ -68,7 +91,8 @@ export function usePolygonEditor() {
       subscription.remove();
     };
   }, [
-    isNameModalVisible,
+    isSaveModalVisible,
+    isSaving,
     points.length,
   ]);
 
@@ -76,6 +100,11 @@ export function usePolygonEditor() {
   const addPoint = (
     point: Coordinate,
   ) => {
+    if (isSaving) {
+      return;
+    }
+
+
     setPoints(
       (currentPoints) => [
         ...currentPoints,
@@ -111,17 +140,41 @@ export function usePolygonEditor() {
     }
 
 
-    setIsNameModalVisible(
+    setIsSaveModalVisible(
       true,
     );
   };
 
 
-  const confirmSave = () => {
+  const confirmSave = async () => {
     if (!marketName.trim()) {
       Alert.alert(
-        '이름 필요',
-        '시장 이름을 입력해주세요.',
+        '시장명 필요',
+        '새로 등록할 시장 이름을 입력해주세요.',
+      );
+
+      return;
+    }
+
+
+    if (
+      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(
+        regionCode.trim(),
+      )
+    ) {
+      Alert.alert(
+        '지역 코드 확인',
+        '지역 코드는 영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.',
+      );
+
+      return;
+    }
+
+
+    if (!adminToken.trim()) {
+      Alert.alert(
+        '토큰 필요',
+        '백엔드에 설정한 관리자 토큰을 입력해주세요.',
       );
 
       return;
@@ -138,58 +191,62 @@ export function usePolygonEditor() {
     }
 
 
+    setIsSaving(
+      true,
+    );
+
+
     try {
       const result =
-        savePolygonToDocument(
+        await draftWriter.createDraft({
           marketName,
+          regionCode,
           points,
-        );
+          adminToken,
+        });
 
 
-      setSavedPolygon(
-        result.polygon,
+      setSubmittedDraft(
+        result,
       );
 
       setPoints(
         [],
       );
 
+      setAdminToken(
+        '',
+      );
+
       setMarketName(
         '',
       );
 
-      setIsNameModalVisible(
+      setIsSaveModalVisible(
         false,
       );
 
 
-      console.log(
-        '저장된 Polygon:',
-        result.polygon,
-      );
-
-      console.log(
-        'JSON 저장 위치:',
-        result.uri,
-      );
-
-
       Alert.alert(
-        '저장 완료',
-        `${result.polygon.name} 영역이 저장되었습니다.\n\n${result.uri}`,
+        'DB 저장 완료',
+        `${result.name} 경계가 draft revision ${result.revision}로 저장되었습니다.\n시장 ID: ${result.marketId}`,
       );
     } catch (saveError) {
       console.error(
-        'Polygon 저장 실패:',
+        'Polygon DB 저장 실패:',
         saveError,
       );
 
 
       Alert.alert(
-        '저장 실패',
+        'DB 저장 실패',
         saveError instanceof Error
           ? saveError.message
           : 'Polygon 저장 중 오류가 발생했습니다.',
+      );
+    } finally {
+      setIsSaving(
+        false,
       );
     }
   };
@@ -197,22 +254,36 @@ export function usePolygonEditor() {
 
   return {
     points,
-    savedPolygon,
+    submittedDraft,
+    adminToken,
     marketName,
-    isNameModalVisible,
+    regionCode,
+    isSaveModalVisible,
+    isSaving,
+    setAdminToken,
     setMarketName,
+    setRegionCode,
     addPoint,
     undoPoint,
     reset,
     requestSave,
     confirmSave,
-    closeNameModal: () => {
-      setIsNameModalVisible(
+    closeSaveModal: () => {
+      if (isSaving) {
+        return;
+      }
+
+
+      setAdminToken(
+        '',
+      );
+
+      setIsSaveModalVisible(
         false,
       );
     },
-    clearSavedPolygon: () => {
-      setSavedPolygon(
+    clearSubmittedDraft: () => {
+      setSubmittedDraft(
         null,
       );
     },
