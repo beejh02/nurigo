@@ -6,10 +6,13 @@ Spring Boot 4.1과 Java 17로 구현한 시장 경계 API입니다. 운영 시�
 
 - `GET /v1/markets`: verified 경계가 있는 시장 목록
 - `GET /v1/markets/{marketId}/boundary`: 현재 verified GeoJSON 경계
+- `POST /v1/admin/markets`: 새 시장과 첫 draft 경계를 한 번에 생성
 - `POST /v1/admin/markets/{marketId}/boundaries`: 다음 draft revision 생성
 - `POST /v1/admin/markets/{marketId}/boundaries/{revision}/verify`: draft 검수 및 배포
 - Flyway 시장·경계 schema와 `daejeon-jungang-market` revision 1 verified 경계 seed
 - GeoJSON 구조 검증, PostGIS `ST_IsValid` 검증과 Polygon 방향 정규화
+
+`V2__seed_daejeon_jungang_market.sql`과 `V3__seed_verified_daejeon_jungang_boundary.sql`은 기존 대전중앙시장 데이터를 DB로 옮긴 일회성 이관 기록입니다. 이미 적용된 Flyway migration은 삭제하거나 수정하지 않습니다. 이후 시장은 migration 파일이 아니라 `POST /v1/admin/markets` 또는 모바일 Polygon 편집기로 등록합니다.
 
 `POST /v1/geofence/check`와 사용자·미션·리워드 API는 아직 구현하지 않았습니다.
 
@@ -35,11 +38,11 @@ $env:NURIGO_ADMIN_TOKEN = 'replace-with-a-long-random-development-token'
 Invoke-RestMethod http://127.0.0.1:8080/actuator/health
 ```
 
-## 수동 API 테스트용 draft 등록 예시
+## 새 시장과 첫 draft 등록 예시
 
 관리자 API는 `NURIGO_ADMIN_TOKEN`과 동일한 Bearer token을 요구합니다. 현재 token 방식은 로컬·초기 개발용이며 모바일 배포물에 포함하지 않습니다.
 
-아래 좌표는 HTTP 형식 확인을 위한 임의의 사각형이며 대전중앙시장 실제 경계가 아닙니다. 실제 경계 제작은 모바일의 `DB에 Polygon 저장` 기능을 사용합니다.
+아래 좌표는 HTTP 형식 확인을 위한 임의의 사각형입니다. 실제 경계 제작은 모바일의 `DB에 Polygon 저장` 기능을 사용합니다.
 
 ```powershell
 $headers = @{
@@ -50,6 +53,8 @@ $body = @'
 {
   "type": "Feature",
   "properties": {
+    "name": "문창전통시장",
+    "regionCode": "daejeon",
     "source": {
       "method": "manual-test"
     }
@@ -69,22 +74,25 @@ $body = @'
 
 $draft = Invoke-RestMethod `
   -Method Post `
-  -Uri http://127.0.0.1:8080/v1/admin/markets/daejeon-jungang-market/boundaries `
+  -Uri http://127.0.0.1:8080/v1/admin/markets `
   -Headers $headers `
   -ContentType 'application/geo+json' `
   -Body $body
 ```
 
-검수는 생성 응답의 `properties.revision`을 사용합니다.
+서버가 시장 ID를 자동으로 생성합니다. 검수는 생성 응답의 `properties.marketId`와 `properties.revision`을 사용합니다.
 
 ```powershell
+$marketId = $draft.properties.marketId
 $revision = $draft.properties.revision
 
 Invoke-RestMethod `
   -Method Post `
-  -Uri "http://127.0.0.1:8080/v1/admin/markets/daejeon-jungang-market/boundaries/$revision/verify" `
+  -Uri "http://127.0.0.1:8080/v1/admin/markets/$marketId/boundaries/$revision/verify" `
   -Headers $headers
 ```
+
+이미 등록된 시장의 경계를 수정할 때만 `POST /v1/admin/markets/{marketId}/boundaries`를 사용합니다.
 
 ## 테스트
 
