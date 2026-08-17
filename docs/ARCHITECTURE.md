@@ -9,17 +9,15 @@
 ```text
 nurigo/
 ├─ README.md
-├─ <market-boundary>.json           # 현재 레거시 임시 원본
-├─ apps/api/                        # PostGIS migration과 OpenAPI 계약
+├─ apps/api/                        # Spring Boot API, PostGIS migration과 OpenAPI 계약
+│  └─ db/migrations/                # schema, 시장과 verified 경계 seed
 ├─ docs/
 └─ mobile/                          # 현재 Expo 앱
    ├─ src/app/index.tsx             # 화면 조립
-   ├─ src/features/                 # 위치·시장 기능 모듈
-   └─ src/data/
-      └─ <market-boundary>.json      # 현재 앱 번들 복사본
+   └─ src/features/                 # 위치·HTTP 시장 repository·Polygon 편집
 ```
 
-현재 모바일은 `MarketBoundaryRepository`를 사용하며 기존 JSON은 임시 bundled 구현 안에 격리되어 있습니다. 실제 API 서버와 PostGIS 데이터베이스는 아직 실행되지 않습니다.
+현재 모바일은 새 Polygon을 `MarketBoundaryDraftWriter`의 HTTP 구현으로 API와 PostGIS에 직접 저장하고, `MarketBoundaryRepository`의 HTTP 구현으로 verified 경계를 읽습니다. 대전중앙시장 revision 1은 Flyway V3가 PostGIS에 생성하며 앱 번들에는 시장 경계 JSON을 두지 않습니다. migration과 draft·verify·조회 흐름은 Testcontainers PostGIS에서 검증합니다.
 
 ## 목표 모노레포
 
@@ -42,7 +40,7 @@ nurigo/
 
 ## 구성 요소 책임
 
-- **Mobile**: 위치 권한과 센서 접근, 시장 탐색, 미션 참여, 사용자 상태 표시
+- **Mobile**: 위치 권한과 센서 접근, 시장 탐색, 미션 참여, 사용자 상태 표시. 현재 개발 빌드에는 경계 draft 제작 기능도 임시 포함
 - **Admin**: 시장 구역, 미션, 보상 재고와 운영 상태 관리
 - **API**: PostGIS 시장 경계 원본, revision 배포, 사용자 인증, 참여 증거 검증과 리워드 발급
 - **Contracts**: 서비스 경계를 넘는 안정된 타입과 요청·응답 계약
@@ -67,7 +65,7 @@ flowchart LR
 
 모바일 앱은 사용자가 시장 안에 있는지 빠르게 안내할 수 있지만, 실제 미션 완료와 리워드 발급의 최종 권한은 API가 가집니다. 클라이언트 판정만으로 보상을 발급하지 않습니다.
 
-## 현재 레거시 시장 데이터 계약
+## 현재 시장 경계 계약
 
 ```ts
 type Coordinate = {
@@ -75,17 +73,16 @@ type Coordinate = {
   longitude: number;
 };
 
-type MarketPolygon = {
-  id: string;
+type MarketBoundary = {
+  marketId: string;
   name: string;
-  createdAt: string;
-  points: Coordinate[];
+  regionCode: string;
+  revision: number;
+  geometry: Polygon | MultiPolygon;
 };
 ```
 
-Polygon은 최소 3개의 유효한 정점을 가져야 합니다. 현재 검증용 전통시장 데이터는 54개의 시계 방향 정점으로 구성되어 있습니다. 이 계약은 앱 프로토타입에서 만든 레거시 형식이며 새 시장의 영구 저장 규격으로 확장하지 않습니다.
-
-목표 구조에서는 백엔드 PostGIS가 시장별 경계와 revision의 유일한 원본이 됩니다. `packages/market-data`는 GeoJSON 좌표를 앱의 `{ latitude, longitude }`와 Naver Map 형식으로 바꾸는 어댑터 및 seed 도구만 담당합니다. 세부 규격과 현재 JSON의 이관 절차는 [시장 경계 데이터 관리](./MARKET_DATA.md)에 정의합니다.
+백엔드 PostGIS가 시장별 경계와 revision의 유일한 원본입니다. API는 RFC 7946 GeoJSON `[longitude, latitude]`를 반환하고 모바일 HTTP repository가 이를 `{ latitude, longitude }`와 Naver Map `Polygon | MultiPolygon` 형식으로 변환합니다. 세부 규격은 [시장 경계 데이터 관리](./MARKET_DATA.md)에 정의합니다.
 
 ## 다음 지오펜스 계약
 

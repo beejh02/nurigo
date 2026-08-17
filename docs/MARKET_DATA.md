@@ -10,31 +10,10 @@
 - 운영 중인 시장 경계의 유일한 원본은 백엔드 PostGIS 데이터베이스입니다.
 - GeoJSON은 관리자 API의 입출력, 초기 seed와 테스트 fixture 형식으로 사용합니다.
 - `packages/market-data`는 공유 계약, 변환기, 검증기와 seed import 도구를 제공합니다.
-- 현재 루트와 모바일의 기존 시장 JSON은 마이그레이션이 끝날 때까지 유지하는 레거시 데이터입니다.
 - 모바일용 좌표 변환과 Naver Map의 좌표 방향 처리는 어댑터에서 수행합니다.
 - 검수되지 않은 시장 경계로 미션이나 리워드를 판정하지 않습니다.
 
-## 현재 파일은 어떻게 처리하는가
 
-현재 두 파일은 내용이 같지만 장기적으로 둘 다 원본이 될 수 없습니다.
-
-```text
-<market-boundary>.json
-mobile/src/data/<market-boundary>.json
-```
-
-당장은 파일을 삭제하거나 이동하지 않습니다. PostGIS와 시장 경계 API 구현 뒤 다음 순서로 한 번만 이관합니다.
-
-1. 현재 54개 좌표와 파일 해시를 마이그레이션 기준으로 기록합니다.
-2. 파일명과 `name`의 오기·표기를 공식 한글 시장명으로 정규화하고 안정된 시장 ID를 부여합니다.
-3. `{ latitude, longitude }`를 GeoJSON의 `[longitude, latitude]`로 변환합니다.
-4. 첫 좌표를 마지막에 다시 추가해 LinearRing을 닫습니다.
-5. 외곽 링을 GeoJSON 표준 방향으로 정규화하고 메타데이터를 채웁니다.
-6. seed import로 PostGIS에 revision 1 draft를 생성하고 검수 후 verified로 전환합니다.
-7. API 응답을 사용하는 repository가 기존 Naver Map 화면과 동일한 경계를 만드는지 비교합니다.
-8. API 연결과 지오펜스 테스트가 통과한 뒤 루트와 모바일의 레거시 JSON을 같은 커밋에서 제거합니다.
-
-이관이 끝나기 전에는 새 시장 파일을 루트에 추가하지 않습니다. 새 좌표는 임시 추출물로만 보관하고 패키지 규격으로 검수해 반영합니다.
 
 ## 목표 지원 패키지
 
@@ -95,7 +74,7 @@ packages/market-data/
 
 예시의 좌표는 형식을 설명하기 위해 생략한 것이므로 실제 시장 경계 파일로 사용하지 않습니다.
 
-GeoJSON은 경도, 위도 순서인 `[longitude, latitude]`를 사용하며 Polygon의 LinearRing은 첫 위치와 마지막 위치가 같아야 합니다. 외곽 링은 반시계 방향, 구멍은 시계 방향으로 정규화합니다. 현재 Naver Map 데이터는 `{ latitude, longitude }`와 시계 방향 외곽선을 사용하므로 앱이 원본 GeoJSON을 직접 해석하지 않고 어댑터를 거칩니다.
+GeoJSON은 경도, 위도 순서인 `[longitude, latitude]`를 사용하며 Polygon의 LinearRing은 첫 위치와 마지막 위치가 같아야 합니다. 외곽 링은 반시계 방향, 구멍은 시계 방향으로 정규화합니다. 모바일 HTTP repository가 API GeoJSON을 `{ latitude, longitude }`와 Naver Map 형식으로 변환합니다.
 
 ## 상태와 버전
 
@@ -130,4 +109,4 @@ seed 검증기와 백엔드는 최소한 다음 조건을 확인합니다.
 - verified GeoJSON 경계를 Naver Map Polygon 좌표로 변환
 - 지오펜스 패키지가 사용할 `Polygon | MultiPolygon` 계약 제공
 
-현재 프로토타입은 `MarketBoundaryRepository`의 bundled 구현으로 기존 JSON을 임시 사용합니다. API가 실행 가능해지면 HTTP 구현으로 교체하고 모바일은 verified 경계를 캐시합니다. 리워드 발급 시에는 API가 현재 verified revision과 `ST_Covers`로 최종 판정합니다.
+현재 프로토타입은 새 Polygon을 모바일 `MarketBoundaryDraftWriter`로 관리자 API에 직접 등록하고, `MarketBoundaryRepository`의 HTTP 구현으로 verified 경계를 조회합니다. 다음 단계에서는 ETag 기반 캐시와 revision 갱신을 추가합니다. 리워드 발급 시에는 API가 현재 verified revision과 `ST_Covers`로 최종 판정합니다.
