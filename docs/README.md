@@ -10,6 +10,7 @@
 4. [아키텍처](./ARCHITECTURE.md): 현재 구조, 목표 모노레포와 핵심 데이터 흐름
 5. [로드맵](./ROADMAP.md): 현재 단계부터 장기 확장까지의 구현 순서
 6. [ADR 0001](./adr/0001-market-boundary-ownership.md): 시장 경계 백엔드 소유권 결정
+7. [ADR 0002](./adr/0002-spring-boot-api.md): Spring Boot API 구현 결정
 
 ## 상태 표기 원칙
 

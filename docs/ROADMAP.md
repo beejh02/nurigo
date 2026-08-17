@@ -15,7 +15,7 @@
 - 공통 계약, 지오펜스, 시장 데이터와 설정 패키지 생성
 - 시장 경계 백엔드 소유권 ADR, PostGIS migration과 OpenAPI 계약 작성
 - 모바일 기능 모듈 분리와 `MarketBoundaryRepository` 도입
-- 루트와 모바일에 중복된 기존 시장 JSON을 검증된 GeoJSON으로 한 번만 이관
+- 완료: 중복 시장 JSON을 Flyway verified seed로 이관하고 제거
 - 타입 검사와 단위 테스트를 실행하는 기본 CI 구성
 
 **완료 기준:** 새 clone에서 문서만으로 Android 개발 빌드를 재현하고, 앱 이동 전후의 기존 Polygon 기능이 동일하게 동작해야 합니다.
@@ -26,8 +26,9 @@
 
 - 등록된 전통시장 경계 표시 기능의 실기기 검증
 - 시장 경계 API 서버와 PostGIS 배포 환경 구성
-- 레거시 JSON을 PostGIS verified revision으로 이관
-- HTTP repository, 모바일 캐시와 revision 불일치 갱신 구현
+- 완료: 대전중앙시장 경계를 PostGIS verified revision 1로 이관
+- 완료: 모바일 verified 경계 HTTP repository 구현
+- 모바일 캐시와 ETag 기반 revision 갱신 구현
 - 지역별 시장 카탈로그와 안정된 시장 ID 도입
 - `packages/geo`의 순수 Point-in-Polygon·MultiPolygon 판정 구현
 - GPS 좌표를 내부, 외부, 확인 중, 권한 없음, 위치 오류 상태로 표현
@@ -51,7 +52,7 @@
 
 **완료 기준:** 운영자가 하나의 시장과 미션을 게시하고, 사용자가 모바일에서 참여하며, API가 검증된 완료 건에만 리워드를 한 번 발급해야 합니다.
 
-백엔드 프레임워크, 관리자 웹 프레임워크, PostgreSQL 제공자와 인증 방식은 해당 구현 착수 전 ADR로 결정합니다. 시장 경계 저장 기술은 PostgreSQL + PostGIS로 확정되었습니다.
+API 프레임워크는 [ADR 0002](./adr/0002-spring-boot-api.md)에서 Spring Boot로 확정했습니다. 관리자 웹 프레임워크, PostgreSQL 운영 제공자와 인증 방식은 해당 구현 착수 전 ADR로 결정합니다. 시장 경계 저장 기술은 PostgreSQL + PostGIS로 확정되었습니다.
 
 ## 3단계 — 확장형 미션
 
@@ -90,10 +91,11 @@
 - 지오펜스 로직과 시장 데이터를 공유 패키지로 분리
 - 운영 시장 경계의 원본은 백엔드 PostGIS가 소유
 - 모바일은 안내를 제공하고 API가 미션 완료와 리워드 발급의 최종 권한을 보유
+- API는 Java 17과 Spring Boot 4.1, Spring JDBC와 Flyway로 구현
 
 ### 후속 ADR에서 결정
 
-- API와 관리자 웹의 프레임워크
+- 관리자 웹 프레임워크
 - PostgreSQL 제공자와 배포 플랫폼
 - 인증 및 사용자 관계 모델
 - 위치·센서 증거 보관 기간과 개인정보 정책
